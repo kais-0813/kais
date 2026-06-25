@@ -1,0 +1,1181 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SNAPSHOT.LOG — 나의 작은 취향 저장소</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Gowun+Batang:wght@400;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- HTML2Canvas (For Story Export) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', 'Pretendard', sans-serif;
+      background-color: #F9F9F7;
+      color: #1A1A1A;
+      transition: background-color 0.3s, color 0.3s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    
+    /* Dark Mode */
+    .dark-mode {
+      background-color: #121212;
+      color: #F5F5F3;
+    }
+    
+    .serif-title { font-family: 'Instrument Serif', serif; }
+    .korean-serif { font-family: 'Gowun Batang', Georgia, serif; }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.1); border-radius: 10px; }
+    .dark-mode ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+    /* Filters */
+    .filter-none { filter: none; }
+    .filter-vintage { filter: sepia(0.35) contrast(1.15) brightness(0.95) saturate(1.1); }
+    .filter-mono { filter: grayscale(1) contrast(1.2) brightness(0.9); }
+    .filter-cool { filter: hue-rotate(30deg) saturate(1.2) contrast(1.05); }
+
+    /* Polaroid Frame */
+    .frame-polaroid {
+      background: #FFFFFF !important;
+      padding: 12px 12px 40px 12px !important;
+      border: 1px solid rgba(0,0,0,0.06);
+      box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
+      border-radius: 4px !important;
+    }
+    .dark-mode .frame-polaroid {
+      background: #F9F9F7 !important;
+      color: #1A1A1A !important;
+    }
+
+    /* Carousel Snap */
+    .carousel-container {
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+    }
+    .carousel-item {
+      scroll-snap-align: center;
+    }
+
+    /* Double Tap Heart Animation */
+    @keyframes pop-heart {
+      0% { transform: scale(0.5); opacity: 0; }
+      50% { transform: scale(1.2); opacity: 1; }
+      100% { transform: scale(1); opacity: 0; }
+    }
+    .animate-pop-heart {
+      animation: pop-heart 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    }
+
+    .tag-chip { transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+    .overflow-hidden-mobile { overflow: hidden; position: fixed; width: 100%; }
+  </style>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: '#0047FF',
+            warmgray: {
+              50: '#F9F9F7', 100: '#F1F1ED', 200: '#E2E2D9', 800: '#1C1C1A', 900: '#121211',
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="min-h-screen selection:bg-brand selection:text-white">
+
+  <!-- Header -->
+  <header class="sticky top-0 z-40 bg-warmgray-50/80 dark:bg-warmgray-900/80 backdrop-blur-md border-b border-warmgray-200 dark:border-neutral-800 transition-colors duration-300">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex justify-between items-center">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-full bg-brand flex items-center justify-center text-white shadow-sm">
+          <i data-lucide="aperture" class="w-5 h-5"></i>
+        </div>
+        <span class="text-xl font-bold tracking-tight">SNAPSHOT</span>
+      </div>
+      
+      <div class="flex items-center gap-2 sm:gap-3">
+        <!-- Feature: Shorts Mode Button -->
+        <button onclick="openShortsMode()" class="flex items-center gap-2 bg-gradient-to-r from-rose-500 to-orange-500 text-white px-4 py-2.5 rounded-full text-sm font-bold hover:scale-105 active:scale-95 transition-all shadow-md hover:shadow-lg">
+          <i data-lucide="play" class="w-4 h-4 fill-white"></i>
+          <span class="hidden sm:inline">쇼츠 모드</span>
+        </button>
+
+        <button onclick="toggleModal('upload-modal', true)" class="flex items-center gap-2 bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-950 px-4 py-2.5 rounded-full text-sm font-bold hover:scale-105 active:scale-95 transition-all shadow-md hover:shadow-lg">
+          <i data-lucide="plus" class="w-4 h-4"></i>
+          <span class="hidden sm:inline">스냅 기록</span>
+        </button>
+        <button onclick="toggleDarkMode()" class="p-2.5 rounded-full bg-white dark:bg-neutral-800 border border-warmgray-200 dark:border-neutral-700 hover:bg-warmgray-100 dark:hover:bg-neutral-700 transition-all text-neutral-600 dark:text-neutral-300 shadow-sm">
+          <i id="theme-icon" data-lucide="moon" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Intro -->
+  <section class="max-w-6xl mx-auto px-4 sm:px-6 pt-8 sm:pt-12 pb-6 text-center md:text-left">
+    <div class="flex flex-col md:flex-row justify-between items-end gap-6">
+      <div class="text-left w-full">
+        <h1 class="korean-serif text-3xl sm:text-4xl md:text-5xl font-normal tracking-tight leading-tight text-neutral-900 dark:text-neutral-50">
+          오늘 머문 시선
+          <span class="block korean-serif font-medium text-lg sm:text-xl md:text-2xl text-neutral-900 dark:text-neutral-200 mt-2">나만의 사소한 취향</span>
+        </h1>
+        <p class="mt-4 sm:mt-6 text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 max-w-md">
+          길게 적을 필요 없어요. 사진을 여러 장 선택하고 다중 업로드할 수도 있습니다. 쇼츠 모드에서 전체 화면으로 감상해 보세요.
+        </p>
+      </div>
+      
+      <div class="w-full md:w-auto flex flex-col items-start md:items-end gap-4 shrink-0">
+        <!-- Search Bar -->
+        <div class="relative w-full max-w-sm md:max-w-[320px]">
+          <i data-lucide="search" class="absolute left-3.5 top-1/2 transform -translate-y-1/2 w-4 h-4 text-neutral-400"></i>
+          <input type="text" id="search-input" oninput="handleSearch(this.value)" placeholder="태그, 장소, 내용 검색..." class="w-full pl-10 pr-4 py-2.5 rounded-full text-xs sm:text-sm border border-neutral-200 dark:border-neutral-700 bg-white/80 dark:bg-neutral-800/80 focus:outline-none focus:border-brand transition-colors text-neutral-800 dark:text-neutral-200 shadow-sm">
+        </div>
+
+        <!-- Filter Chips -->
+        <div class="flex gap-2 w-full md:w-auto overflow-x-auto pb-3 pt-1 -mx-4 px-4 md:mx-0 md:px-0 md:pb-0 justify-start md:justify-end no-scrollbar snap-x">
+          <button onclick="filterCategory('all')" id="filter-all" class="filter-btn shrink-0 snap-start px-4 py-2 rounded-full text-xs font-semibold tracking-wider transition-all bg-brand text-white shadow-sm flex items-center justify-center">ALL</button>
+          <button onclick="filterCategory('SAVED')" id="filter-SAVED" class="filter-btn shrink-0 snap-start px-4 py-2 rounded-full text-xs font-semibold tracking-wider transition-all bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 shadow-sm flex items-center justify-center gap-1.5"><i data-lucide="bookmark" class="w-3.5 h-3.5"></i>SAVED</button>
+          
+          <div class="w-px h-6 bg-neutral-300 dark:bg-neutral-700 my-auto shrink-0 mx-1"></div>
+          
+          <button onclick="filterCategory('MUSIC')" id="filter-MUSIC" class="filter-btn shrink-0 snap-start px-4 py-2 rounded-full text-xs font-semibold tracking-wider transition-all bg-white text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300 border border-warmgray-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-700 flex items-center justify-center">MUSIC</button>
+          <button onclick="filterCategory('SPACE')" id="filter-SPACE" class="filter-btn shrink-0 snap-start px-4 py-2 rounded-full text-xs font-semibold tracking-wider transition-all bg-white text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300 border border-warmgray-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-700 flex items-center justify-center">SPACE</button>
+          <button onclick="filterCategory('OBJECT')" id="filter-OBJECT" class="filter-btn shrink-0 snap-start px-4 py-2 rounded-full text-xs font-semibold tracking-wider transition-all bg-white text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300 border border-warmgray-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-700 flex items-center justify-center">OBJECT</button>
+          <button onclick="filterCategory('FASHION')" id="filter-FASHION" class="filter-btn shrink-0 snap-start px-4 py-2 rounded-full text-xs font-semibold tracking-wider transition-all bg-white text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300 border border-warmgray-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-700 flex items-center justify-center">FASHION</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Feed Section -->
+  <main class="max-w-6xl mx-auto px-4 sm:px-6 pb-20">
+    <!-- Insights Dashboard -->
+    <div id="insights-container" class="mb-8 hidden transition-all"></div>
+    
+    <div id="snapshot-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 auto-rows-max">
+      <!-- Cards will be injected here via JS -->
+    </div>
+    
+    <!-- Empty State -->
+    <div id="empty-state" class="hidden flex-col items-center justify-center py-24 text-center">
+      <div class="w-16 h-16 bg-neutral-100 dark:bg-neutral-800 rounded-full flex items-center justify-center mb-5 text-neutral-400">
+        <i data-lucide="camera-off" class="w-8 h-8"></i>
+      </div>
+      <h3 class="text-lg font-bold text-neutral-900 dark:text-neutral-100 mb-2">아직 기록된 취향이 없어요</h3>
+      <p class="text-sm text-neutral-500 dark:text-neutral-400 mb-6">첫 번째 스냅샷을 기록하고 나만의 컬렉션을 채워보세요.</p>
+      <button onclick="toggleModal('upload-modal', true)" class="px-6 py-2.5 bg-brand text-white rounded-full text-sm font-semibold hover:opacity-90 transition-opacity">기록 시작하기</button>
+    </div>
+  </main>
+
+  <!-- Shorts Mode Fullscreen Modal (New Feature) -->
+  <div id="shorts-modal" class="fixed inset-0 z-50 bg-black/95 hidden flex-col items-center justify-center">
+    <!-- Close Button -->
+    <button onclick="closeShortsMode()" class="absolute top-6 left-4 sm:left-8 z-[60] p-3 bg-white/10 text-white rounded-full hover:bg-white/20 backdrop-blur-sm transition-all active:scale-95">
+      <i data-lucide="arrow-left" class="w-6 h-6"></i>
+    </button>
+    <div class="absolute top-6 right-4 sm:right-8 z-[60] px-4 py-2 bg-white/10 text-white/90 rounded-full text-xs font-bold font-serif italic backdrop-blur-sm pointer-events-none tracking-widest">
+      SHORTS.LOG
+    </div>
+
+    <!-- Scrollable Container (PC Optimize: max-w-md) -->
+    <div id="shorts-container" class="w-full sm:max-w-[420px] h-[100dvh] overflow-y-scroll snap-y snap-mandatory no-scrollbar bg-[#121212] relative flex flex-col sm:border-x sm:border-white/10 shadow-2xl">
+      <!-- Shorts cards will be injected here via JS -->
+    </div>
+  </div>
+
+  <!-- Upload Modal -->
+  <div id="upload-modal" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm hidden transition-all duration-300">
+    <div class="bg-white dark:bg-neutral-900 w-full max-w-2xl rounded-t-3xl sm:rounded-2xl overflow-hidden shadow-2xl border border-warmgray-200 dark:border-neutral-800 transform translate-y-full sm:translate-y-0 sm:scale-95 transition-all duration-300 relative max-h-[95vh] sm:max-h-[85vh] flex flex-col">
+      <div class="px-6 py-4 border-b border-warmgray-100 dark:border-neutral-800 flex justify-between items-center bg-white dark:bg-neutral-900 z-10">
+        <h2 class="text-lg font-bold">새로운 스냅샷 기록</h2>
+        <button type="button" onclick="toggleModal('upload-modal', false)" class="p-2 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      
+      <div class="overflow-y-auto p-6 flex-1 custom-scrollbar">
+        <form onsubmit="handleFormSubmit(event)" class="space-y-8">
+          <!-- Step 1: Image Selection -->
+          <div>
+            <div class="flex justify-between items-end mb-2">
+              <label class="block text-[10px] sm:text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">1. 이미지 업로드 (최대 5장)</label>
+              <span id="upload-count" class="text-[10px] font-bold text-brand bg-brand/10 px-2 py-0.5 rounded-full hidden">다중 선택됨</span>
+            </div>
+            
+            <!-- Live Preview Sandbox -->
+            <div class="w-full aspect-square sm:aspect-video bg-neutral-100 dark:bg-neutral-800 rounded-xl mb-4 relative flex items-center justify-center overflow-hidden border border-neutral-200 dark:border-neutral-700">
+              <div id="upload-placeholder-content" class="text-center transition-all duration-300 z-10 pointer-events-none">
+                <i data-lucide="image-plus" class="w-8 h-8 mx-auto text-neutral-400 mb-2"></i>
+                <span class="text-xs text-neutral-500 font-medium">아래에서 사진을 선택해주세요</span>
+              </div>
+              <div id="preview-frame-wrapper" class="absolute inset-0 w-full h-full p-2 transition-all duration-300 hidden z-20 flex items-center justify-center">
+                <img id="live-sandbox-preview" src="" alt="Preview" class="w-full h-full object-cover rounded-lg transition-all duration-300">
+                <!-- 다중 이미지 표시 아이콘 -->
+                <div id="multi-image-indicator" class="absolute top-4 right-4 bg-black/60 text-white p-1.5 rounded-md hidden">
+                  <i data-lucide="layers" class="w-4 h-4"></i>
+                </div>
+              </div>
+            </div>
+
+            <!-- Inputs -->
+            <div class="space-y-3">
+              <div class="flex items-center gap-2">
+                <label for="file-upload-input" class="flex-1 cursor-pointer bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 rounded-lg px-4 py-3 text-xs text-center font-bold transition-transform active:scale-95 shadow-sm">
+                  <i data-lucide="folder-up" class="w-4 h-4 inline-block mr-1"></i> 갤러리에서 찾기 (다중 선택 가능)
+                </label>
+                <!-- 다중 파일 선택 허용 (multiple) -->
+                <input type="file" id="file-upload-input" accept="image/*" multiple class="hidden" onchange="handleLocalFileUpload(event)">
+              </div>
+              
+              <!-- Presets -->
+              <div class="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+                <button type="button" onclick="selectPresetImage(0)" class="preset-img-btn border-2 border-brand rounded-lg overflow-hidden aspect-square h-12 shrink-0">
+                  <img src="https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&q=80&w=300" class="w-full h-full object-cover">
+                </button>
+                <button type="button" onclick="selectPresetImage(1)" class="preset-img-btn border-2 border-transparent rounded-lg overflow-hidden aspect-square h-12 shrink-0">
+                  <img src="https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&q=80&w=300" class="w-full h-full object-cover">
+                </button>
+                <button type="button" onclick="selectPresetImage(2)" class="preset-img-btn border-2 border-transparent rounded-lg overflow-hidden aspect-square h-12 shrink-0">
+                  <img src="https://images.unsplash.com/photo-1544256718-3bcf237f3974?auto=format&fit=crop&q=80&w=300" class="w-full h-full object-cover">
+                </button>
+                <button type="button" onclick="selectPresetImage(3)" class="preset-img-btn border-2 border-transparent rounded-lg overflow-hidden aspect-square h-12 shrink-0">
+                  <img src="https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&q=80&w=300" class="w-full h-full object-cover">
+                </button>
+              </div>
+
+              <!-- URL Fallback -->
+              <input type="url" id="custom-image-url" oninput="handleUrlInput(this.value)" placeholder="또는 웹 이미지 주소(URL) 입력" class="w-full text-xs px-3 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg focus:outline-none focus:border-brand">
+            </div>
+          </div>
+
+          <!-- Step 2: Custom Style & Filter -->
+          <div>
+            <label class="block text-[10px] sm:text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-2">2. 스타일 및 필터</label>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <select id="filter-select" onchange="updateSandboxStyles()" class="w-full text-xs px-3 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg focus:outline-none focus:border-brand">
+                  <option value="none">필터 없음 (Original)</option>
+                  <option value="vintage" selected>아날로그 빈티지 (Warm)</option>
+                  <option value="mono">클래식 모노크롬 (B&W)</option>
+                  <option value="cool">미니멀리스트 쿨 (Cool)</option>
+                </select>
+              </div>
+              <div>
+                <select id="frame-select" onchange="updateSandboxStyles()" class="w-full text-xs px-3 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg focus:outline-none focus:border-brand">
+                  <option value="none" selected>일반 사각 프레임</option>
+                  <option value="polaroid">폴라로이드 필름 감성</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 3: Category Select -->
+          <div>
+            <label class="block text-[10px] sm:text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-2">3. 취향 카테고리</label>
+            <div class="flex gap-2">
+              <input type="radio" name="category" id="cat-music" value="MUSIC" class="hidden" checked>
+              <label for="cat-music" class="category-radio-label tag-chip flex-1 text-center py-2.5 border rounded-lg text-xs font-medium cursor-pointer bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 border-neutral-900 dark:border-white select-none">#MUSIC</label>
+              
+              <input type="radio" name="category" id="cat-space" value="SPACE" class="hidden">
+              <label for="cat-space" class="category-radio-label tag-chip flex-1 text-center py-2.5 border rounded-lg text-xs font-medium cursor-pointer border-neutral-200 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400 select-none">#SPACE</label>
+
+              <input type="radio" name="category" id="cat-object" value="OBJECT" class="hidden">
+              <label for="cat-object" class="category-radio-label tag-chip flex-1 text-center py-2.5 border rounded-lg text-xs font-medium cursor-pointer border-neutral-200 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400 select-none">#OBJECT</label>
+
+              <input type="radio" name="category" id="cat-fashion" value="FASHION" class="hidden">
+              <label for="cat-fashion" class="category-radio-label tag-chip flex-1 text-center py-2.5 border rounded-lg text-xs font-medium cursor-pointer border-neutral-200 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400 select-none">#FASHION</label>
+            </div>
+          </div>
+
+          <!-- Step 3.5: Location & Custom Tags -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-[10px] sm:text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-2">장소 (선택)</label>
+              <div class="flex gap-2">
+                <div class="relative flex-1">
+                  <i data-lucide="map-pin" class="absolute left-3 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-neutral-400"></i>
+                  <input type="text" id="snapshot-location" placeholder="예: 연희동 로컬카페" class="w-full pl-9 pr-3 py-2.5 text-sm bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg focus:outline-none focus:border-brand transition-colors">
+                </div>
+                <button type="button" onclick="getCurrentLocation()" class="px-3 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-500 hover:text-brand hover:border-brand transition-all flex items-center justify-center shrink-0" title="현재 위치 자동 입력">
+                  <i data-lucide="crosshair" class="w-4 h-4"></i>
+                </button>
+              </div>
+            </div>
+            <div>
+              <label class="block text-[10px] sm:text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-2">커스텀 태그 (선택)</label>
+              <div class="relative">
+                <i data-lucide="hash" class="absolute left-3 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-neutral-400"></i>
+                <input type="text" id="snapshot-tags" placeholder="비오는날, 커피 (띄어쓰기 구분)" class="w-full pl-9 pr-3 py-2.5 text-sm bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg focus:outline-none focus:border-brand">
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 4: Write Comment -->
+          <div>
+            <label class="block text-[10px] sm:text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-2">4. 툭 던지는 코멘트</label>
+            <input type="text" id="snapshot-title" placeholder="무엇을 담았나요? (예: LP로 듣는 검정치마)" required class="w-full text-sm px-3 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg focus:outline-none focus:border-brand mb-2">
+            <textarea id="snapshot-comment" placeholder="사소하지만 기억하고 싶은 기분을 적어주세요. (최대 120자)" maxlength="120" rows="3" required class="w-full text-sm px-3 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg focus:outline-none focus:border-brand resize-none"></textarea>
+          </div>
+
+          <!-- Submit Buttons -->
+          <div class="pt-2 flex justify-end gap-3 pb-8 sm:pb-0">
+            <button type="button" onclick="toggleModal('upload-modal', false)" class="px-4 py-3 text-sm font-medium text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200 min-h-[44px]">취소</button>
+            <button type="submit" class="bg-brand text-white px-5 py-3 rounded-full text-sm font-semibold hover:opacity-90 transition-all flex items-center gap-2 min-h-[44px]">
+              <span>기록하기</span>
+              <i data-lucide="arrow-right" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Detail Pop-Up Modal -->
+  <div id="detail-modal" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm hidden transition-all duration-300">
+    <div class="bg-white dark:bg-neutral-900 w-full max-w-lg rounded-t-3xl sm:rounded-2xl overflow-hidden shadow-2xl border border-warmgray-200 dark:border-neutral-800 transform translate-y-full sm:translate-y-0 sm:scale-95 transition-all duration-300 relative max-h-[92vh] sm:max-h-[85vh] flex flex-col">
+      <button onclick="toggleModal('detail-modal', false)" class="absolute top-4 right-4 z-40 p-2.5 rounded-full bg-black/40 text-white hover:bg-black/60 transition-colors flex items-center justify-center shadow-lg">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+      <div id="detail-modal-content" class="overflow-y-auto flex-1 custom-scrollbar">
+        <!-- Content will be injected dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Notification System -->
+  <div id="toast-notif" class="fixed bottom-6 left-4 right-4 sm:left-auto sm:right-6 z-50 flex items-center gap-3 bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-950 px-5 py-4 rounded-xl shadow-xl transform translate-y-24 opacity-0 transition-all duration-300">
+    <i data-lucide="check" class="w-4 h-4 text-emerald-400"></i>
+    <span id="toast-message" class="text-xs sm:text-sm font-medium">알림 메시지</span>
+  </div>
+
+  <!-- Script Segment -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    let db, auth, userId, appId;
+    
+    // Seed Data
+    const seedPosts = [
+      { id: 1, title: "LP로 꺼내 듣는 검정치마", comment: "비 오는 날 낮에는 무조건 턴테이블에 이 앨범을 얹어둡니다. 지지직거리는 노이즈 속에서 흐르는 멜로디가 공간의 온도를 확 바꿔요.", category: "MUSIC", location: "나의 방", customTags: ["비오는날", "턴테이블"], imageUrls: ["https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&q=80&w=800"], date: "MAY 21", filter: "vintage", frame: "polaroid", likes: 12, savedBy: [], starred: true },
+      { id: 2, title: "연희동 골목, 주택을 개조한 커피룸", comment: "시끌벅적한 큰길을 지나 발견한 아늑한 모퉁이. 가구 배치가 기가 막힙니다. 조명이 어두워서 온전히 책에 집중하게 만들어줘요.", category: "SPACE", location: "연희동", customTags: ["로컬카페", "독서"], imageUrls: ["https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&q=80&w=800", "https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&q=80&w=800"], date: "MAY 19", filter: "none", frame: "none", likes: 8, savedBy: [], starred: false },
+      { id: 3, title: "오크 우드 향이 번지는 인센스 홀더", comment: "황동으로 만들어진 작은 문진 형태의 인센스 홀더. 묵직하고 거친 텍스처가 햇빛을 받을 때 정말 매력적이에요.", category: "OBJECT", location: "내 책상", customTags: ["인센스", "황동", "데스크테리어"], imageUrls: ["https://images.unsplash.com/photo-1544256718-3bcf237f3974?auto=format&fit=crop&q=80&w=800"], date: "APR 28", filter: "cool", frame: "none", likes: 15, savedBy: [], starred: false },
+      { id: 4, title: "시티팝 뉘앙스의 오프 화이트 빈티지 가디건", comment: "바람이 살랑살랑 불 때 가볍게 걸치기 딱 좋습니다. 짜임이 성글어서 자연스럽게 늘어지는 핏이 오늘 날씨와 어울리네요.", category: "FASHION", location: "성수동 빈티지샵", customTags: ["빈티지", "시티팝", "OOTD"], imageUrls: ["https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&q=80&w=800"], date: "APR 20", filter: "vintage", frame: "polaroid", likes: 19, savedBy: [], starred: true }
+    ];
+
+    let posts = [];
+    let activeCategoryFilter = 'all';
+    let searchQuery = '';
+    let activeDetailId = null;
+
+    const imagePresets = [
+      "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&q=80&w=800",
+      "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&q=80&w=800",
+      "https://images.unsplash.com/photo-1544256718-3bcf237f3974?auto=format&fit=crop&q=80&w=800",
+      "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&q=80&w=800"
+    ];
+
+    let selectedImageSource = 'preset';
+    let selectedPresetIndex = 0;
+    let localUploadedImages = []; 
+
+    // 1. Firebase Auth & DB Setup
+    async function initFirebase() {
+      const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+      appId = typeof __app_id !== 'undefined' ? __app_id : 'snapshot-app-id';
+
+      const app = initializeApp(firebaseConfig);
+      auth = getAuth(app);
+      db = getFirestore(app);
+
+      try {
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+          await signInAnonymously(auth);
+        }
+      } catch (err) { console.error("Auth error:", err); }
+
+      onAuthStateChanged(auth, (user) => {
+        if (user) { userId = user.uid; setupFirestoreListener(); }
+      });
+    }
+
+    function setupFirestoreListener() {
+      if (!userId) return;
+      const snapshotsRef = collection(db, 'artifacts', appId, 'users', userId, 'snapshots');
+      onSnapshot(snapshotsRef, (snapshot) => {
+        posts = [];
+        snapshot.forEach(doc => posts.push(doc.data()));
+        posts.sort((a, b) => b.id - a.id);
+
+        if (posts.length === 0 && !localStorage.getItem('cloud_seed_injected')) {
+          seedPosts.forEach(p => setDoc(doc(db, 'artifacts', appId, 'users', userId, 'snapshots', p.id.toString()), p));
+          localStorage.setItem('cloud_seed_injected', 'true');
+        } else {
+          renderInsights();
+          renderFeed();
+          if (!document.getElementById('detail-modal').classList.contains('hidden') && activeDetailId) {
+            openDetail(activeDetailId);
+          }
+        }
+      }, (e) => console.error(e));
+    }
+
+    // [New] Shorts Mode Implementation
+    function openShortsMode(startId = null) {
+      if (posts.length === 0) return triggerToast('기록된 스냅샷이 없습니다.');
+      
+      const shortsModal = document.getElementById('shorts-modal');
+      shortsModal.classList.remove('hidden');
+      shortsModal.classList.add('flex');
+      document.body.classList.add('overflow-hidden');
+      
+      renderShorts();
+      
+      if (startId) {
+        setTimeout(() => {
+          const target = document.getElementById(`shorts-post-${startId}`);
+          if(target) target.scrollIntoView({ behavior: 'auto' });
+        }, 100);
+      }
+      lucide.createIcons();
+
+      // PC 환경을 위한 키보드 위아래 방향키 스크롤 연결
+      document.addEventListener('keydown', window.handleShortsKeydown);
+    }
+
+    function closeShortsMode() {
+      const shortsModal = document.getElementById('shorts-modal');
+      shortsModal.classList.add('hidden');
+      shortsModal.classList.remove('flex');
+      document.body.classList.remove('overflow-hidden');
+      
+      // 변경된 상태(좋아요/저장)를 그리드 뷰에 반영
+      renderFeed(); 
+      // PC 이벤트 해제
+      document.removeEventListener('keydown', window.handleShortsKeydown);
+    }
+
+    // 쇼츠 모드 키보드(PC) 네비게이션 함수
+    window.handleShortsKeydown = function(e) {
+      const container = document.getElementById('shorts-container');
+      if (!container) return;
+      const h = container.clientHeight;
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        container.scrollBy({ top: h, behavior: 'smooth' });
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        container.scrollBy({ top: -h, behavior: 'smooth' });
+      }
+    };
+
+    function renderShorts() {
+      const container = document.getElementById('shorts-container');
+      
+      // 현재 필터링된 게시물(또는 전체 게시물) 가져오기
+      const filteredPosts = posts.filter(post => {
+        if (activeCategoryFilter === 'SAVED') {
+           if (!post.savedBy || !post.savedBy.includes(userId)) return false;
+        } else {
+           if (activeCategoryFilter !== 'all' && post.category !== activeCategoryFilter) return false;
+        }
+        let matchSearch = true;
+        if (searchQuery) matchSearch = `${post.title} ${post.comment} ${post.location || ''} ${(post.customTags || []).join(' ')}`.toLowerCase().includes(searchQuery);
+        return matchSearch;
+      });
+
+      if(filteredPosts.length === 0) {
+        container.innerHTML = `<div class="w-full h-full flex flex-col items-center justify-center text-white"><i data-lucide="camera-off" class="w-12 h-12 text-white/50 mb-4"></i><p>표시할 스냅샷이 없습니다.</p></div>`;
+        return;
+      }
+
+      container.innerHTML = filteredPosts.map(post => {
+        const isSaved = post.savedBy && post.savedBy.includes(userId);
+        const saveIconClass = isSaved ? "fill-white text-white" : "text-white";
+        const likeIconClass = post.likes > 0 ? "fill-rose-500 text-rose-500" : "text-white";
+        const filterClass = `filter-${post.filter}`;
+        
+        const images = (post.imageUrls && post.imageUrls.length > 0) ? post.imageUrls : [post.imageUrl];
+        const hasMultiple = images.length > 1;
+        
+        let imagesHtml = '';
+        if (hasMultiple) {
+           imagesHtml = `<div class="carousel-container flex overflow-x-auto h-full w-full snap-x snap-mandatory no-scrollbar" onclick="handleDoubleTap(event, ${post.id})">`;
+           images.forEach(src => {
+             imagesHtml += `<div class="carousel-item w-full h-full shrink-0 snap-center relative flex items-center justify-center"><img src="${src}" class="w-full h-full object-cover ${filterClass}"></div>`;
+           });
+           imagesHtml += `</div>
+           <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none flex gap-1 z-10 opacity-50">
+             <div class="bg-black/50 px-3 py-1 rounded-full text-white text-xs backdrop-blur-md flex items-center gap-1"><i data-lucide="chevrons-left" class="w-3 h-3"></i>스와이프<i data-lucide="chevrons-right" class="w-3 h-3"></i></div>
+           </div>`;
+        } else {
+           imagesHtml = `<div class="w-full h-full relative" onclick="handleDoubleTap(event, ${post.id})"><img src="${images[0]}" class="w-full h-full object-cover ${filterClass}"></div>`;
+        }
+
+        return `
+          <div id="shorts-post-${post.id}" class="w-full h-[100dvh] snap-start relative bg-[#121212] flex items-center justify-center overflow-hidden shrink-0">
+            ${imagesHtml}
+            
+            <!-- Dark Overlay for text readability -->
+            <div class="absolute inset-0 bg-gradient-to-t from-black/95 via-black/20 to-black/10 pointer-events-none z-10"></div>
+
+            <!-- Double Tap Animation -->
+            <div class="absolute inset-0 flex items-center justify-center pointer-events-none z-30">
+              <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="1.5" class="opacity-0 drop-shadow-2xl heart-anim-${post.id}"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+            </div>
+            
+            <!-- Right Actions (Vertical Stack) -->
+            <div class="absolute right-4 bottom-24 flex flex-col gap-6 items-center z-20">
+              <button onclick="likePost(event, ${post.id})" class="flex flex-col items-center gap-1.5 group active:scale-90 transition-transform">
+                <div class="w-12 h-12 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center border border-white/10 hover:bg-white/10 transition-colors">
+                  <i data-lucide="heart" id="shorts-like-icon-${post.id}" class="w-6 h-6 ${likeIconClass} transition-colors"></i>
+                </div>
+                <span class="text-white text-xs font-bold drop-shadow-md shorts-like-count-${post.id}">${post.likes}</span>
+              </button>
+              
+              <button onclick="toggleSave(event, ${post.id})" class="flex flex-col items-center gap-1.5 group active:scale-90 transition-transform">
+                <div class="w-12 h-12 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center border border-white/10 hover:bg-white/10 transition-colors">
+                  <i data-lucide="bookmark" id="shorts-save-icon-${post.id}" class="w-6 h-6 ${saveIconClass} transition-colors"></i>
+                </div>
+                <span class="text-white text-xs font-bold drop-shadow-md">저장</span>
+              </button>
+
+              <button onclick="exportToStory(${post.id})" class="flex flex-col items-center gap-1.5 group active:scale-90 transition-transform">
+                <div class="w-12 h-12 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center border border-white/10 hover:bg-white/10 transition-colors">
+                  <i data-lucide="instagram" class="w-6 h-6 text-white"></i>
+                </div>
+                <span class="text-white text-xs font-bold drop-shadow-md">공유</span>
+              </button>
+            </div>
+
+            <!-- Bottom Left Info -->
+            <div class="absolute left-4 bottom-10 right-20 z-20 flex flex-col gap-2 pointer-events-none">
+               <div class="flex flex-wrap items-center gap-2 mb-1 pointer-events-auto">
+                 <span class="bg-brand/90 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-1 rounded-sm shadow-md uppercase tracking-wider">#${post.category}</span>
+                 ${post.location ? `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(post.location)}" target="_blank" class="flex items-center gap-1 text-[11px] text-white/90 font-medium drop-shadow-md hover:text-brand transition-colors"><i data-lucide="map-pin" class="w-3.5 h-3.5"></i>${post.location}</a>` : ''}
+               </div>
+               <h3 class="text-white text-xl font-bold drop-shadow-lg leading-tight line-clamp-2 pointer-events-auto">${post.title}</h3>
+               <p class="text-white/80 text-sm drop-shadow-md line-clamp-3 leading-relaxed font-light pointer-events-auto">${post.comment}</p>
+               <div class="flex flex-wrap gap-1.5 mt-1.5 pointer-events-auto">
+                 ${(post.customTags || []).map(t => `<span class="text-white/70 text-xs font-medium drop-shadow-md bg-white/10 px-2 py-0.5 rounded-md cursor-pointer hover:bg-white/20 transition-colors" onclick="closeShortsMode(); setQueryAndSearch('${t}');">#${t}</span>`).join(' ')}
+               </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // ----------------------------------------------------
+
+    function renderInsights() {
+      const container = document.getElementById('insights-container');
+      if (posts.length === 0) return container.classList.add('hidden');
+      
+      const counts = { MUSIC: 0, SPACE: 0, OBJECT: 0, FASHION: 0 };
+      posts.forEach(p => { if (counts[p.category] !== undefined) counts[p.category]++; });
+      const total = posts.length;
+      
+      let topCat = 'MUSIC', max = -1;
+      for (const [cat, count] of Object.entries(counts)) { if (count > max) { max = count; topCat = cat; } }
+      if (max === 0) return container.classList.add('hidden');
+      container.classList.remove('hidden');
+
+      const emojis = { MUSIC: '🎧', SPACE: '☕️', OBJECT: '🏺', FASHION: '👕' };
+      const colors = { MUSIC: 'bg-brand', SPACE: 'bg-emerald-500', OBJECT: 'bg-amber-500', FASHION: 'bg-rose-500' };
+      
+      let barHtml = '';
+      Object.keys(counts).forEach(cat => {
+        if (counts[cat] > 0) barHtml += `<div class="${colors[cat]} h-full transition-all duration-1000" style="width: ${(counts[cat]/total*100).toFixed(1)}%" title="${cat}"></div>`;
+      });
+      
+      const labelsHtml = Object.keys(counts).filter(c => counts[c] > 0).map(c => `<div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full ${colors[c]}"></span>${c} <span class="text-neutral-400">(${counts[c]})</span></div>`).join('');
+
+      container.innerHTML = `
+        <div class="bg-white dark:bg-neutral-800/80 rounded-2xl p-5 sm:p-6 border border-warmgray-200 dark:border-neutral-700 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-5 relative overflow-hidden">
+          <div class="absolute -right-4 -top-6 text-[100px] opacity-[0.03] pointer-events-none dark:opacity-10">${emojis[topCat]}</div>
+          <div class="relative z-10">
+            <div class="flex items-center gap-1.5 text-[11px] font-bold text-neutral-400 mb-1.5 tracking-wider uppercase"><i data-lucide="pie-chart" class="w-3.5 h-3.5"></i> Taste Insights</div>
+            <h3 class="text-sm sm:text-base font-medium text-neutral-800 dark:text-neutral-200 leading-snug">지금까지 나의 시선은 <br class="sm:hidden"/><span class="font-bold text-brand dark:text-blue-400">${emojis[topCat]} ${topCat}</span>에 가장 많이 머물렀어요.</h3>
+          </div>
+          <div class="w-full md:w-5/12 lg:w-1/3 flex flex-col gap-3 relative z-10">
+            <div class="h-3.5 w-full bg-neutral-100 dark:bg-neutral-900 rounded-full overflow-hidden flex gap-0.5">${barHtml}</div>
+            <div class="flex flex-wrap gap-3 text-[10px] sm:text-[11px] text-neutral-500 font-medium">${labelsHtml}</div>
+          </div>
+        </div>
+      `;
+      lucide.createIcons();
+    }
+
+    // Modal & UI Utils
+    function toggleModal(modalId, isShow) {
+      const modal = document.getElementById(modalId);
+      const child = modal.querySelector('div');
+      const isMobile = window.innerWidth < 640;
+      
+      if (!isShow && modalId === 'detail-modal') activeDetailId = null;
+
+      if (isShow) {
+        document.body.classList.add('overflow-hidden-mobile');
+        modal.classList.remove('hidden');
+        setTimeout(() => {
+          if (isMobile) { child.classList.remove('translate-y-full'); child.classList.add('translate-y-0'); } 
+          else { child.classList.remove('scale-95'); child.classList.add('scale-100'); }
+        }, 10);
+        if (modalId === 'upload-modal') selectPresetImage(0);
+      } else {
+        document.body.classList.remove('overflow-hidden-mobile');
+        if (isMobile) { child.classList.add('translate-y-full'); child.classList.remove('translate-y-0'); } 
+        else { child.classList.add('scale-95'); child.classList.remove('scale-100'); }
+        setTimeout(() => modal.classList.add('hidden'), 200);
+      }
+    }
+
+    function toggleDarkMode() {
+      const isDark = document.body.classList.toggle('dark-mode');
+      const icon = document.getElementById('theme-icon');
+      if (isDark) { document.documentElement.classList.add('dark'); icon.setAttribute('data-lucide', 'sun'); } 
+      else { document.documentElement.classList.remove('dark'); icon.setAttribute('data-lucide', 'moon'); }
+      lucide.createIcons();
+    }
+
+    function handleLocalFileUpload(event) {
+      const files = event.target.files;
+      if (!files.length) return;
+      localUploadedImages = [];
+      const multiIndicator = document.getElementById('multi-image-indicator');
+      const uploadCountBadge = document.getElementById('upload-count');
+
+      const fileCount = Math.min(files.length, 5);
+      
+      Array.from(files).slice(0, 5).forEach(file => {
+        const reader = new FileReader();
+        reader.onload = e => {
+          localUploadedImages.push(e.target.result);
+          if (localUploadedImages.length === fileCount) {
+            selectedImageSource = 'file';
+            deselectAllPresets();
+            document.getElementById('custom-image-url').value = '';
+            updateSandboxImage(localUploadedImages[0]); 
+            
+            if (fileCount > 1) {
+              multiIndicator.classList.remove('hidden');
+              uploadCountBadge.classList.remove('hidden');
+              uploadCountBadge.innerText = `${fileCount}장 다중 선택됨`;
+            } else {
+              multiIndicator.classList.add('hidden');
+              uploadCountBadge.classList.add('hidden');
+            }
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function selectPresetImage(index) {
+      selectedPresetIndex = index;
+      selectedImageSource = 'preset';
+      document.querySelectorAll('.preset-img-btn').forEach((btn, idx) => {
+        btn.classList.toggle('border-brand', idx === index);
+        btn.classList.toggle('border-transparent', idx !== index);
+      });
+      document.getElementById('file-upload-input').value = '';
+      document.getElementById('custom-image-url').value = '';
+      document.getElementById('multi-image-indicator').classList.add('hidden');
+      document.getElementById('upload-count').classList.add('hidden');
+      localUploadedImages = [];
+      updateSandboxImage(imagePresets[index]);
+    }
+
+    function handleUrlInput(val) {
+      if (val.trim() === '') return selectPresetImage(0);
+      selectedImageSource = 'url';
+      deselectAllPresets();
+      document.getElementById('multi-image-indicator').classList.add('hidden');
+      document.getElementById('upload-count').classList.add('hidden');
+      updateSandboxImage(val.trim());
+    }
+
+    function deselectAllPresets() {
+      document.querySelectorAll('.preset-img-btn').forEach(btn => {
+        btn.classList.remove('border-brand'); btn.classList.add('border-transparent');
+      });
+      selectedPresetIndex = -1;
+    }
+
+    function updateSandboxImage(src) {
+      const placeholder = document.getElementById('upload-placeholder-content');
+      const frameWrapper = document.getElementById('preview-frame-wrapper');
+      const liveImg = document.getElementById('live-sandbox-preview');
+
+      placeholder.classList.add('opacity-0');
+      setTimeout(() => placeholder.classList.add('hidden'), 300);
+
+      liveImg.src = src;
+      frameWrapper.classList.remove('hidden');
+      updateSandboxStyles();
+    }
+
+    function updateSandboxStyles() {
+      const filter = document.getElementById('filter-select').value;
+      const frame = document.getElementById('frame-select').value;
+      const liveImg = document.getElementById('live-sandbox-preview');
+      const frameWrapper = document.getElementById('preview-frame-wrapper');
+
+      liveImg.className = `w-full h-full object-cover rounded-lg transition-all duration-300 filter-${filter}`;
+      frameWrapper.className = "absolute inset-0 w-full h-full p-2 transition-all duration-300 flex items-center justify-center z-20";
+
+      if (frame === 'polaroid') {
+        frameWrapper.classList.add('frame-polaroid');
+        liveImg.classList.remove('rounded-lg'); liveImg.classList.add('rounded-sm');
+      }
+    }
+
+    function triggerToast(message) {
+      const toast = document.getElementById('toast-notif');
+      document.getElementById('toast-message').innerText = message;
+      toast.classList.remove('translate-y-24', 'opacity-0');
+      toast.classList.add('translate-y-0', 'opacity-100');
+      setTimeout(() => {
+        toast.classList.remove('translate-y-0', 'opacity-100');
+        toast.classList.add('translate-y-24', 'opacity-0');
+      }, 3000);
+    }
+
+    // Database Actions
+    function handleFormSubmit(event) {
+      event.preventDefault();
+      if (!userId) return triggerToast('클라우드 연결 중입니다. 잠시 후 다시 시도해주세요.');
+
+      let finalImageUrls = [];
+      if (selectedImageSource === 'file' && localUploadedImages.length > 0) finalImageUrls = localUploadedImages;
+      else if (selectedImageSource === 'url') finalImageUrls = [document.getElementById('custom-image-url').value.trim()];
+      else finalImageUrls = [imagePresets[selectedPresetIndex]];
+
+      const customTags = document.getElementById('snapshot-tags').value.trim() 
+        ? document.getElementById('snapshot-tags').value.trim().split(/[,#\s]+/).filter(t => t.length > 0) 
+        : [];
+      const months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+      const now = new Date();
+
+      const newPost = {
+        id: Date.now(),
+        title: document.getElementById('snapshot-title').value.trim(),
+        comment: document.getElementById('snapshot-comment').value.trim(),
+        location: document.getElementById('snapshot-location').value.trim(),
+        customTags,
+        category: document.querySelector('input[name="category"]:checked').value,
+        imageUrls: finalImageUrls,
+        date: `${months[now.getMonth()]} ${now.getDate()}`,
+        filter: document.getElementById('filter-select').value,
+        frame: document.getElementById('frame-select').value,
+        likes: 0,
+        savedBy: [],
+        starred: Math.random() > 0.6
+      };
+
+      setDoc(doc(db, 'artifacts', appId, 'users', userId, 'snapshots', newPost.id.toString()), newPost)
+        .then(() => triggerToast('클라우드 공간에 안전하게 박제되었습니다! ☁️'))
+        .catch(e => console.error("Write error:", e));
+
+      event.target.reset();
+      document.getElementById('upload-placeholder-content').classList.remove('hidden', 'opacity-0');
+      document.getElementById('preview-frame-wrapper').classList.add('hidden');
+      document.getElementById('multi-image-indicator').classList.add('hidden');
+      document.getElementById('upload-count').classList.add('hidden');
+      toggleModal('upload-modal', false);
+    }
+
+    // Feature: Double Tap to Like
+    window.lastTapTimes = {};
+    function handleDoubleTap(e, id) {
+      const currentTime = new Date().getTime();
+      const lastTap = window.lastTapTimes[id] || 0;
+      const tapLength = currentTime - lastTap;
+      
+      if (tapLength < 400 && tapLength > 0) {
+        likePost(e, id, true);
+        e.preventDefault();
+      }
+      window.lastTapTimes[id] = currentTime;
+    }
+
+    function likePost(e, id, fromDoubleTap = false) {
+      if (e) e.stopPropagation();
+      const targetPost = posts.find(p => p.id === id);
+      if (targetPost && userId) {
+        // Animation trigger
+        if (fromDoubleTap) {
+          const animIcons = document.querySelectorAll(`.heart-anim-${id}`);
+          animIcons.forEach(icon => {
+            icon.classList.remove('opacity-0');
+            icon.classList.add('animate-pop-heart');
+            setTimeout(() => {
+              icon.classList.add('opacity-0');
+              icon.classList.remove('animate-pop-heart');
+            }, 800);
+          });
+        }
+        
+        targetPost.likes += 1;
+        setDoc(doc(db, 'artifacts', appId, 'users', userId, 'snapshots', id.toString()), targetPost);
+        
+        // Optimistic UI update for Shorts Mode if active
+        const shortsLikeCount = document.querySelector(`.shorts-like-count-${id}`);
+        const shortsLikeIcon = document.getElementById(`shorts-like-icon-${id}`);
+        if(shortsLikeCount) shortsLikeCount.innerText = targetPost.likes;
+        if(shortsLikeIcon) { shortsLikeIcon.classList.remove('text-white'); shortsLikeIcon.classList.add('fill-rose-500', 'text-rose-500'); }
+      }
+    }
+
+    // Feature: Saved / Bookmarks
+    function toggleSave(e, id) {
+      if (e) e.stopPropagation();
+      const post = posts.find(p => p.id === id);
+      if (post && userId) {
+        if (!post.savedBy) post.savedBy = [];
+        let isSaving = false;
+        if (post.savedBy.includes(userId)) {
+          post.savedBy = post.savedBy.filter(uid => uid !== userId);
+          triggerToast('나만의 컬렉션에서 제거되었습니다.');
+        } else {
+          post.savedBy.push(userId);
+          isSaving = true;
+          triggerToast('나만의 컬렉션에 보관되었습니다. 📁');
+        }
+        setDoc(doc(db, 'artifacts', appId, 'users', userId, 'snapshots', id.toString()), post);
+
+        // Optimistic UI update for Shorts Mode if active
+        const shortsSaveIcon = document.getElementById(`shorts-save-icon-${id}`);
+        if(shortsSaveIcon) {
+           if(isSaving) { shortsSaveIcon.classList.add('fill-white'); }
+           else { shortsSaveIcon.classList.remove('fill-white'); }
+        }
+      }
+    }
+
+    function deletePost(e, id) {
+      if (e) e.stopPropagation();
+      if (!userId) return;
+      if (confirm('이 취향 조각을 클라우드에서 영구히 삭제하시겠습니까?')) {
+        deleteDoc(doc(db, 'artifacts', appId, 'users', userId, 'snapshots', id.toString()))
+          .then(() => {
+            toggleModal('detail-modal', false);
+            triggerToast('취향 카드가 클라우드에서 완전히 탈거되었습니다. ☁️');
+          });
+      }
+    }
+
+    // UI Builders
+    function buildCarouselHtml(post, isDetail = false) {
+      const images = (post.imageUrls && post.imageUrls.length > 0) ? post.imageUrls : [post.imageUrl];
+      const hasMultiple = images.length > 1;
+      const frameClass = post.frame === 'polaroid' ? 'frame-polaroid' : 'bg-neutral-100 dark:bg-neutral-800';
+      const filterClass = `filter-${post.filter}`;
+      const roundedClass = (isDetail && post.frame === 'polaroid') ? 'rounded-sm' : (isDetail ? '' : 'sm:rounded-xl rounded-lg');
+
+      let html = `<div class="overflow-hidden ${roundedClass} ${frameClass} aspect-square relative w-full border border-warmgray-100 dark:border-neutral-800 flex items-center justify-center">`;
+
+      html += `<div class="carousel-container flex overflow-x-auto h-full w-full relative no-scrollbar" onclick="handleDoubleTap(event, ${post.id})">`;
+      images.forEach((src) => {
+        html += `
+          <div class="carousel-item w-full h-full shrink-0 relative flex items-center justify-center">
+            <img src="${src}" alt="snapshot" crossorigin="anonymous" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 ${filterClass} ${post.frame === 'polaroid' ? 'rounded-sm' : ''}">
+            <div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity z-0 pointer-events-none"></div>
+          </div>
+        `;
+      });
+      html += `</div>`; 
+
+      html += `
+        <div class="absolute inset-0 flex items-center justify-center pointer-events-none z-30">
+          <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="opacity-0 drop-shadow-2xl heart-anim-${post.id}"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+        </div>
+      `;
+
+      if (hasMultiple) {
+         html += `
+           <div class="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 z-20 pointer-events-none bg-black/20 px-2 py-1 rounded-full backdrop-blur-sm">
+             ${images.map(()=> `<div class="w-1.5 h-1.5 rounded-full bg-white/90 shadow-sm"></div>`).join('')}
+           </div>
+         `;
+      }
+
+      if (!isDetail) {
+         html += `<span class="absolute top-2 left-2 sm:top-3 sm:left-3 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider bg-white/90 dark:bg-black/90 text-brand shadow-sm z-10 pointer-events-none">#${post.category}</span>`;
+         if(post.location) {
+             html += `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(post.location)}" target="_blank" onclick="event.stopPropagation()" class="absolute bottom-2 left-2 sm:bottom-3 sm:left-3 px-2 py-1 rounded-full text-[10px] font-medium bg-black/60 backdrop-blur-md text-white hover:bg-brand flex items-center gap-1 shadow-sm z-20 transition-colors"><i data-lucide="map-pin" class="w-3 h-3"></i><span class="truncate max-w-[120px]">${post.location}</span></a>`;
+         }
+      }
+      html += `</div>`;
+      return html;
+    }
+
+    function openDetail(id) {
+      const item = posts.find(p => p.id === id);
+      if (!item) return;
+      activeDetailId = id; 
+
+      const detailContent = document.getElementById('detail-modal-content');
+      const tagsHtml = (item.customTags || []).map(tag => `<button type="button" onclick="setQueryAndSearch('${tag}', true)" class="inline-block px-2.5 py-1 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-md text-[10px] sm:text-[11px] font-medium text-neutral-600 dark:text-neutral-300 mr-1.5 mb-1.5 transition-colors shadow-sm">#${tag}</button>`).join('');
+      const locationHtml = item.location ? `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.location)}" target="_blank" class="inline-flex items-center gap-1.5 text-[11px] sm:text-xs text-brand hover:underline mb-3 transition-all" title="지도에서 보기"><i data-lucide="map-pin" class="w-3.5 h-3.5"></i><span>${item.location}</span><i data-lucide="external-link" class="w-3 h-3 opacity-50"></i></a>` : '';
+      
+      const isSaved = item.savedBy && item.savedBy.includes(userId);
+      const saveIconClass = isSaved ? "fill-neutral-900 text-neutral-900 dark:fill-white dark:text-white" : "text-neutral-400 hover:text-neutral-800 dark:hover:text-white";
+
+      detailContent.innerHTML = `
+        <div class="p-5 sm:p-6 dark:bg-neutral-900 transition-colors relative">
+          <div class="mb-4 shadow-sm relative">${buildCarouselHtml(item, true)}</div>
+          
+          <div class="flex justify-between items-start mb-2">
+            <div class="flex flex-wrap items-center gap-1.5 flex-1">
+              <span class="inline-block px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold tracking-widest bg-brand/10 text-brand dark:bg-brand/20 dark:text-brand shadow-sm">#${item.category}</span>
+              ${tagsHtml}
+            </div>
+            <span class="text-[11px] text-neutral-400 font-medium ml-2 shrink-0">${item.date}</span>
+          </div>
+          <h4 class="text-lg sm:text-xl font-bold tracking-tight mb-1 text-neutral-900 dark:text-neutral-50">${item.title}</h4>
+          ${locationHtml}
+          <p class="text-xs sm:text-sm leading-relaxed text-neutral-600 dark:text-neutral-300 bg-neutral-50 dark:bg-neutral-800/50 p-4 rounded-xl border border-neutral-100 dark:border-neutral-800">${item.comment}</p>
+          
+          <div class="mt-5 pt-3 pb-4 sm:pb-0 border-t border-neutral-100 dark:border-neutral-800 flex justify-between items-center text-xs text-neutral-400">
+            <div class="flex items-center gap-4">
+              <button class="flex items-center gap-1.5 hover:text-rose-500 transition-colors min-h-[44px]" onclick="likePost(event, ${item.id})">
+                <i data-lucide="heart" class="w-4.5 h-4.5 ${item.likes > 0 ? 'fill-rose-500 text-rose-500' : ''} transition-transform active:scale-75"></i>
+                <span class="font-bold text-neutral-800 dark:text-neutral-200">${item.likes}</span>
+              </button>
+              <button class="flex items-center gap-1 hover:text-neutral-800 transition-colors min-h-[44px]" onclick="toggleSave(event, ${item.id})">
+                <i data-lucide="bookmark" class="w-4.5 h-4.5 ${saveIconClass} transition-transform active:scale-75"></i>
+              </button>
+            </div>
+            <button onclick="deletePost(event, ${item.id})" class="flex items-center gap-1 text-neutral-400 hover:text-red-500 transition-colors min-h-[44px]" title="이 포스트 삭제하기">
+              <i data-lucide="trash-2" class="w-4 h-4"></i><span class="font-semibold text-[10px]">삭제</span>
+            </button>
+          </div>
+
+          <button onclick="exportToStory(${item.id})" class="w-full mt-2 py-3.5 bg-brand text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition-all hover:bg-blue-700 shadow-md active:scale-95">
+            <i data-lucide="instagram" class="w-4 h-4"></i> 스토리 이미지로 저장하기
+          </button>
+        </div>
+      `;
+      if(document.getElementById('detail-modal').classList.contains('hidden')) toggleModal('detail-modal', true);
+      lucide.createIcons();
+    }
+
+    function renderFeed() {
+      const container = document.getElementById('snapshot-container');
+      const emptyState = document.getElementById('empty-state');
+      
+      const filteredPosts = posts.filter(post => {
+        if (activeCategoryFilter === 'SAVED') {
+           if (!post.savedBy || !post.savedBy.includes(userId)) return false;
+        } else {
+           if (activeCategoryFilter !== 'all' && post.category !== activeCategoryFilter) return false;
+        }
+        let matchSearch = true;
+        if (searchQuery) matchSearch = `${post.title} ${post.comment} ${post.location || ''} ${(post.customTags || []).join(' ')}`.toLowerCase().includes(searchQuery);
+        return matchSearch;
+      });
+
+      if (filteredPosts.length === 0) {
+        container.innerHTML = '';
+        emptyState.classList.remove('hidden'); emptyState.classList.add('flex');
+        return;
+      }
+      emptyState.classList.remove('flex'); emptyState.classList.add('hidden');
+
+      container.innerHTML = filteredPosts.map(post => {
+        const starClass = post.starred ? 'sm:col-span-2 sm:row-span-2' : '';
+        const tagsPreview = (post.customTags || []).slice(0, 2).map(tag => `<button type="button" onclick="event.stopPropagation(); setQueryAndSearch('${tag}')" class="text-[10px] text-neutral-500 hover:text-brand z-20 relative font-medium transition-colors">#${tag}</button>`).join(' ');
+        const extraTags = (post.customTags || []).length > 2 ? `<span class="text-[10px] text-neutral-400">...</span>` : '';
+        
+        const isSaved = post.savedBy && post.savedBy.includes(userId);
+        const saveIconClass = isSaved ? "fill-neutral-900 text-neutral-900 dark:fill-white dark:text-white" : "text-neutral-400 group-hover:text-neutral-800 dark:group-hover:text-white";
+
+        return `
+          <div onclick="openDetail(${post.id})" class="snapshot-card ${starClass} group relative flex flex-col justify-between overflow-hidden p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-warmgray-200 dark:border-neutral-800 hover:border-brand dark:hover:border-brand/50 bg-white dark:bg-neutral-800/40 shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer hover:-translate-y-1 h-full">
+            <div class="space-y-3 sm:space-y-4">
+              
+              ${buildCarouselHtml(post, false)}
+
+              <div>
+                <div class="flex justify-between items-center mb-1"><span class="text-[10px] sm:text-[11px] font-semibold text-neutral-400 font-mono">${post.date}</span></div>
+                <h3 class="font-bold text-xs sm:text-sm text-neutral-800 dark:text-neutral-100 group-hover:text-brand transition-colors line-clamp-1">${post.title}</h3>
+                <p class="text-[10px] sm:text-xs text-neutral-500 dark:text-neutral-400 mt-1.5 leading-relaxed line-clamp-2">${post.comment}</p>
+                <div class="mt-1.5 flex flex-wrap gap-1">${tagsPreview} ${extraTags}</div>
+              </div>
+            </div>
+            
+            <div class="mt-4 pt-3 border-t border-warmgray-100 dark:border-neutral-800 flex justify-between items-center text-[11px] text-neutral-400">
+              <span class="font-serif italic text-[10px]">LOG NO. ${post.id.toString().slice(-4)}</span>
+              
+              <div class="flex items-center gap-3">
+                <button onclick="likePost(event, ${post.id})" class="flex items-center gap-1 text-neutral-400 hover:text-rose-500 transition-colors p-1 -m-1">
+                  <i data-lucide="heart" class="w-3.5 h-3.5 ${post.likes > 0 ? 'fill-rose-500 text-rose-500' : ''} group-hover:scale-110 transition-transform active:scale-75"></i><span class="font-semibold text-neutral-600 dark:text-neutral-300">${post.likes}</span>
+                </button>
+                <button onclick="toggleSave(event, ${post.id})" class="flex items-center transition-colors p-1 -m-1 z-20 relative">
+                  <i data-lucide="bookmark" class="w-3.5 h-3.5 ${saveIconClass} group-hover:scale-110 transition-transform active:scale-75"></i>
+                </button>
+                <!-- Shorts Quick Play Icon -->
+                <button onclick="event.stopPropagation(); openShortsMode(${post.id})" class="flex items-center transition-colors p-1 -m-1 z-20 relative group-hover:text-brand">
+                  <i data-lucide="play-circle" class="w-3.5 h-3.5 group-hover:scale-110 transition-transform active:scale-75"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+      lucide.createIcons();
+    }
+
+    // Feature: Export to Instagram Story Image
+    async function exportToStory(id) {
+      const post = posts.find(p => p.id === id);
+      if(!post) return;
+      
+      triggerToast('스토리용 이미지를 예쁘게 굽는 중입니다... ⏳');
+      
+      const tempDiv = document.createElement('div');
+      tempDiv.style.width = '1080px'; tempDiv.style.height = '1920px';
+      tempDiv.style.position = 'fixed'; tempDiv.style.left = '-9999px'; tempDiv.style.top = '0';
+      tempDiv.style.background = 'linear-gradient(135deg, #F9F9F7 0%, #E2E2D9 100%)';
+      tempDiv.style.display = 'flex'; tempDiv.style.flexDirection = 'column';
+      tempDiv.style.alignItems = 'center'; tempDiv.style.justifyContent = 'center';
+      tempDiv.style.padding = '80px'; tempDiv.style.boxSizing = 'border-box';
+
+      const imgUrl = (post.imageUrls && post.imageUrls.length > 0) ? post.imageUrls[0] : post.imageUrl;
+      let filterStyle = 'none';
+      if(post.filter === 'vintage') filterStyle = 'sepia(0.35) contrast(1.15) brightness(0.95) saturate(1.1)';
+      else if(post.filter === 'mono') filterStyle = 'grayscale(1) contrast(1.2) brightness(0.9)';
+      else if(post.filter === 'cool') filterStyle = 'hue-rotate(30deg) saturate(1.2) contrast(1.05)';
+
+      tempDiv.innerHTML = `
+        <div style="background: white; padding: 40px 40px 140px 40px; box-shadow: 0 40px 100px rgba(0,0,0,0.15); border-radius: 8px; width: 100%; display: flex; flex-direction: column;">
+          <img src="${imgUrl}" crossorigin="anonymous" style="width: 100%; aspect-ratio: 1/1; object-fit: cover; border-radius: 4px; filter: ${filterStyle};">
+          <div style="margin-top: 50px; font-family: 'Plus Jakarta Sans', sans-serif;">
+            <span style="display: inline-block; padding: 12px 28px; border-radius: 100px; background: rgba(0, 71, 255, 0.1); color: #0047FF; font-weight: 800; font-size: 36px; letter-spacing: 2px;">#${post.category}</span>
+            <h2 style="font-size: 64px; font-weight: 800; color: #1A1A1A; margin-top: 32px; line-height: 1.2;">${post.title}</h2>
+            <p style="font-size: 40px; color: #666; margin-top: 30px; line-height: 1.6; font-family: 'Gowun Batang', serif;">${post.comment}</p>
+            ${post.location ? `<div style="font-size: 36px; color: #888; margin-top: 40px; font-weight: 600;">📍 ${post.location}</div>` : ''}
+          </div>
+        </div>
+        <div style="position: absolute; bottom: 100px; font-family: 'Instrument Serif', serif; font-size: 40px; color: #888; font-style: italic; letter-spacing: 4px;">SNAPSHOT.LOG</div>
+      `;
+
+      document.body.appendChild(tempDiv);
+      setTimeout(async () => {
+         try {
+           const canvas = await html2canvas(tempDiv, { useCORS: true, scale: 1, allowTaint: true });
+           const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+           const link = document.createElement('a'); link.download = `snapshot_${id}_story.jpg`;
+           link.href = dataUrl; link.click();
+           document.body.removeChild(tempDiv);
+           triggerToast('스토리 이미지가 앨범에 성공적으로 저장되었습니다! 📸');
+         } catch (err) {
+           console.error("Export error", err); document.body.removeChild(tempDiv);
+           triggerToast('이미지 저장에 실패했습니다. (외부 이미지 보안 권한 문제일 수 있습니다.)');
+         }
+      }, 1500);
+    }
+
+    // Filters and Search
+    function filterCategory(category) {
+      activeCategoryFilter = category;
+      document.querySelectorAll('.filter-btn').forEach(btn => {
+        if (btn.id === `filter-${category}`) {
+          if (category === 'SAVED') {
+            btn.className = "filter-btn shrink-0 snap-start px-4 py-2 rounded-full text-xs font-semibold tracking-wider transition-all bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 shadow-sm flex items-center justify-center gap-1.5";
+          } else {
+            btn.className = "filter-btn shrink-0 snap-start px-4 py-2 rounded-full text-xs font-semibold tracking-wider transition-all bg-brand text-white shadow-sm flex items-center justify-center";
+          }
+        } else {
+          if (btn.id === 'filter-SAVED') {
+            btn.className = "filter-btn shrink-0 snap-start px-4 py-2 rounded-full text-xs font-semibold tracking-wider transition-all bg-white text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300 border border-warmgray-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-700 flex items-center justify-center gap-1.5";
+          } else {
+            btn.className = "filter-btn shrink-0 snap-start px-4 py-2 rounded-full text-xs font-semibold tracking-wider transition-all bg-white text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300 border border-warmgray-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-700 flex items-center justify-center";
+          }
+        }
+      });
+      renderFeed();
+    }
+
+    function handleSearch(query) {
+      searchQuery = query.trim().toLowerCase();
+      renderFeed();
+    }
+
+    function setQueryAndSearch(query, fromModal = false) {
+      if (fromModal) toggleModal('detail-modal', false);
+      document.getElementById('search-input').value = query;
+      filterCategory('all');
+      handleSearch(query);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function getCurrentLocation() {
+      const locInput = document.getElementById('snapshot-location');
+      const origin = locInput.placeholder;
+      locInput.value = ""; locInput.placeholder = "위치 찾는 중...";
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          pos => {
+            fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&zoom=14`)
+              .then(r => r.json())
+              .then(d => { locInput.value = d.address.neighbourhood || d.address.suburb || d.address.town || '나의 현재 위치'; locInput.placeholder = origin; triggerToast('현재 위치를 불러왔습니다.'); })
+              .catch(() => { locInput.value = '알 수 없는 멋진 곳'; locInput.placeholder = origin; });
+          }, () => { locInput.placeholder = origin; triggerToast('위치 권한 거부'); }, { timeout: 5000 }
+        );
+      }
+    }
+
+    function setupCategoryRadioListeners() {
+      document.querySelectorAll('input[name="category"]').forEach(radio => {
+        radio.addEventListener('change', (e) => {
+          document.querySelectorAll('.category-radio-label').forEach(lbl => lbl.className = "category-radio-label tag-chip flex-1 text-center py-2.5 border rounded-lg text-xs font-medium cursor-pointer border-neutral-200 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400 select-none");
+          if (e.target.checked) document.querySelector(`label[for="${e.target.id}"]`).className = "category-radio-label tag-chip flex-1 text-center py-2.5 border rounded-lg text-xs font-medium cursor-pointer bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 border-neutral-900 dark:border-white select-none";
+        });
+      });
+    }
+
+    function setupPWA() {
+      const manifest = { "name": "SNAPSHOT", "short_name": "SNAPSHOT", "start_url": ".", "display": "standalone", "background_color": "#F9F9F7", "theme_color": "#0047FF", "icons": [{"src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMDA0N0ZGIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iMTAiLz48bGluZSB4MT0iMTIiIHkxPSI4IiB4Mj0iMTIiIHkyPSIxMiIvPjxsaW5lIHgxPSIxMiIgeTE9IjE2IiB4Mj0iMTIuMDEiIHkyPSIxNiIvPjwvc3ZnPg==", "sizes": "192x192", "type": "image/svg+xml", "purpose": "any maskable"}] };
+      const link = document.createElement('link'); link.rel = 'manifest';
+      link.href = URL.createObjectURL(new Blob([JSON.stringify(manifest)], { type: 'application/json' }));
+      document.head.appendChild(link);
+    }
+
+    window.toggleModal = toggleModal; window.toggleDarkMode = toggleDarkMode;
+    window.handleLocalFileUpload = handleLocalFileUpload; window.selectPresetImage = selectPresetImage;
+    window.handleUrlInput = handleUrlInput; window.handleSearch = handleSearch; window.setQueryAndSearch = setQueryAndSearch;
+    window.getCurrentLocation = getCurrentLocation; window.updateSandboxStyles = updateSandboxStyles;
+    window.handleFormSubmit = handleFormSubmit; window.handleDoubleTap = handleDoubleTap;
+    window.likePost = likePost; window.toggleSave = toggleSave; window.deletePost = deletePost;
+    window.openDetail = openDetail; window.filterCategory = filterCategory; window.exportToStory = exportToStory;
+    window.openShortsMode = openShortsMode; window.closeShortsMode = closeShortsMode;
+
+    window.onload = function () {
+      initFirebase();
+      setupCategoryRadioListeners();
+      setupPWA();
+      lucide.createIcons();
+    }
+  </script>
+</body>
+</html>
