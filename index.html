@@ -106,6 +106,10 @@
           <i data-lucide="aperture" class="w-5 h-5"></i>
         </div>
         <span class="text-xl font-bold tracking-tight">SNAPSHOT</span>
+        <!-- 실시간 클라우드 연동 상태 배너 -->
+        <span id="sync-status" class="inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full bg-neutral-200 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400 transition-all duration-300">
+          <span class="w-1.5 h-1.5 rounded-full bg-neutral-400 animate-pulse"></span> 연결 확인중...
+        </span>
       </div>
       
       <div class="flex items-center gap-2 sm:gap-3">
@@ -369,9 +373,11 @@
     import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
     import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+    const STORAGE_KEY = 'snapshot_log_posts';
     let db, auth, userId, appId;
+    let isFirebaseActive = false; // 클라우드 동기화 모드 여부 트래킹
     
-    // Seed Data
+    // Seed Data (초기 샘플 데이터)
     const seedPosts = [
       { id: 1, title: "LP로 꺼내 듣는 검정치마", comment: "비 오는 날 낮에는 무조건 턴테이블에 이 앨범을 얹어둡니다. 지지직거리는 노이즈 속에서 흐르는 멜로디가 공간의 온도를 확 바꿔요.", category: "MUSIC", location: "나의 방", customTags: ["비오는날", "턴테이블"], imageUrls: ["https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&q=80&w=800"], date: "MAY 21", filter: "vintage", frame: "polaroid", likes: 12, savedBy: [], starred: true },
       { id: 2, title: "연희동 골목, 주택을 개조한 커피룸", comment: "시끌벅적한 큰길을 지나 발견한 아늑한 모퉁이. 가구 배치가 기가 막힙니다. 조명이 어두워서 온전히 책에 집중하게 만들어줘요.", category: "SPACE", location: "연희동", customTags: ["로컬카페", "독서"], imageUrls: ["https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&q=80&w=800", "https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&q=80&w=800"], date: "MAY 19", filter: "none", frame: "none", likes: 8, savedBy: [], starred: false },
@@ -395,30 +401,96 @@
     let selectedPresetIndex = 0;
     let localUploadedImages = []; 
 
-    // 1. Firebase Auth & DB Setup
+    // 1. Firebase Auth & DB Setup (CORS, 빈 정보 예외 처리 포함 안전 설계)
     async function initFirebase() {
-      const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
       appId = typeof __app_id !== 'undefined' ? __app_id : 'snapshot-app-id';
 
-      const app = initializeApp(firebaseConfig);
-      auth = getAuth(app);
-      db = getFirestore(app);
+      let firebaseConfig = null;
+      try {
+        if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+          firebaseConfig = JSON.parse(__firebase_config);
+        }
+      } catch (err) {
+        console.warn("Firebase Config parse failed. Falling back to LocalStorage.");
+      }
+
+      // Config 정보가 아예 비어있거나 무효하다면 로컬 스토리지 모드로 즉시 진입
+      if (!firebaseConfig || !firebaseConfig.apiKey) {
+        useLocalStorageMode();
+        return;
+      }
 
       try {
+        const app = initializeApp(firebaseConfig);
+        auth = getAuth(app);
+        db = getFirestore(app);
+
+        // Rule 3 준수: Auth 완료를 기다림
         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
           await signInWithCustomToken(auth, __initial_auth_token);
         } else {
           await signInAnonymously(auth);
         }
-      } catch (err) { console.error("Auth error:", err); }
 
-      onAuthStateChanged(auth, (user) => {
-        if (user) { userId = user.uid; setupFirestoreListener(); }
-      });
+        onAuthStateChanged(auth, (user) => {
+          if (user) {
+            userId = user.uid;
+            isFirebaseActive = true;
+            updateSyncStatus('connected');
+            setupFirestoreListener();
+          } else {
+            useLocalStorageMode();
+          }
+        });
+      } catch (err) {
+        console.warn("Firebase Init failed. Falling back to LocalStorage.", err);
+        useLocalStorageMode();
+      }
+    }
+
+    // 로컬 스토리지 기반 안전 전환 모드
+    function useLocalStorageMode() {
+      isFirebaseActive = false;
+      updateSyncStatus('local');
+      loadLocalStorageData();
+    }
+
+    // 로컬 스토리지 데이터 로드 함수
+    function loadLocalStorageData() {
+      const savedData = localStorage.getItem(STORAGE_KEY);
+      if (savedData) {
+        posts = JSON.parse(savedData);
+      } else {
+        posts = [...seedPosts];
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(posts));
+      }
+      renderInsights();
+      renderFeed();
+      if (!document.getElementById('detail-modal').classList.contains('hidden') && activeDetailId) {
+        openDetail(activeDetailId);
+      }
+    }
+
+    // 로컬 스토리지 데이터 저장 함수
+    function saveLocalStorageData() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(posts));
+    }
+
+    // 헤더 상태 배너 업데이트 유틸
+    function updateSyncStatus(status) {
+      const el = document.getElementById('sync-status');
+      if (!el) return;
+      if (status === 'connected') {
+        el.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> 클라우드 연동됨`;
+        el.className = "inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-400 transition-all duration-300";
+      } else if (status === 'local') {
+        el.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span> 로컬 저장소 사용`;
+        el.className = "inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-400 transition-all duration-300";
+      }
     }
 
     function setupFirestoreListener() {
-      if (!userId) return;
+      if (!userId || !isFirebaseActive) return;
       const snapshotsRef = collection(db, 'artifacts', appId, 'users', userId, 'snapshots');
       onSnapshot(snapshotsRef, (snapshot) => {
         posts = [];
@@ -435,7 +507,10 @@
             openDetail(activeDetailId);
           }
         }
-      }, (e) => console.error(e));
+      }, (e) => {
+        console.error("Firestore loading failed. Switched to LocalStorage Mode.", e);
+        useLocalStorageMode();
+      });
     }
 
     // [New] Shorts Mode Implementation
@@ -493,7 +568,7 @@
       // 현재 필터링된 게시물(또는 전체 게시물) 가져오기
       const filteredPosts = posts.filter(post => {
         if (activeCategoryFilter === 'SAVED') {
-           if (!post.savedBy || !post.savedBy.includes(userId)) return false;
+           if (!post.savedBy || !post.savedBy.includes(userId || 'local-user')) return false;
         } else {
            if (activeCategoryFilter !== 'all' && post.category !== activeCategoryFilter) return false;
         }
@@ -508,7 +583,7 @@
       }
 
       container.innerHTML = filteredPosts.map(post => {
-        const isSaved = post.savedBy && post.savedBy.includes(userId);
+        const isSaved = post.savedBy && post.savedBy.includes(userId || 'local-user');
         const saveIconClass = isSaved ? "fill-white text-white" : "text-white";
         const likeIconClass = post.likes > 0 ? "fill-rose-500 text-rose-500" : "text-white";
         const filterClass = `filter-${post.filter}`;
@@ -596,7 +671,7 @@
       let topCat = 'MUSIC', max = -1;
       for (const [cat, count] of Object.entries(counts)) { if (count > max) { max = count; topCat = cat; } }
       if (max === 0) return container.classList.add('hidden');
-      container.classList.remove('hidden');
+      container.className = "mb-8 block transition-all";
 
       const emojis = { MUSIC: '🎧', SPACE: '☕️', OBJECT: '🏺', FASHION: '👕' };
       const colors = { MUSIC: 'bg-brand', SPACE: 'bg-emerald-500', OBJECT: 'bg-amber-500', FASHION: 'bg-rose-500' };
@@ -759,10 +834,9 @@
       }, 3000);
     }
 
-    // Database Actions
+    // Database / Storage Actions
     function handleFormSubmit(event) {
       event.preventDefault();
-      if (!userId) return triggerToast('클라우드 연결 중입니다. 잠시 후 다시 시도해주세요.');
 
       let finalImageUrls = [];
       if (selectedImageSource === 'file' && localUploadedImages.length > 0) finalImageUrls = localUploadedImages;
@@ -791,9 +865,20 @@
         starred: Math.random() > 0.6
       };
 
-      setDoc(doc(db, 'artifacts', appId, 'users', userId, 'snapshots', newPost.id.toString()), newPost)
-        .then(() => triggerToast('클라우드 공간에 안전하게 박제되었습니다! ☁️'))
-        .catch(e => console.error("Write error:", e));
+      if (isFirebaseActive && userId) {
+        setDoc(doc(db, 'artifacts', appId, 'users', userId, 'snapshots', newPost.id.toString()), newPost)
+          .then(() => triggerToast('클라우드 공간에 안전하게 박제되었습니다! ☁️'))
+          .catch(e => {
+             console.error("Write error:", e);
+             triggerToast('클라우드 저장 실패. 로컬에 저장합니다.');
+          });
+      } else {
+        posts.unshift(newPost);
+        saveLocalStorageData();
+        renderInsights();
+        renderFeed();
+        triggerToast('로컬 보드에 안전하게 박제되었습니다! 💾');
+      }
 
       event.target.reset();
       document.getElementById('upload-placeholder-content').classList.remove('hidden', 'opacity-0');
@@ -820,7 +905,7 @@
     function likePost(e, id, fromDoubleTap = false) {
       if (e) e.stopPropagation();
       const targetPost = posts.find(p => p.id === id);
-      if (targetPost && userId) {
+      if (targetPost) {
         // Animation trigger
         if (fromDoubleTap) {
           const animIcons = document.querySelectorAll(`.heart-anim-${id}`);
@@ -835,7 +920,14 @@
         }
         
         targetPost.likes += 1;
-        setDoc(doc(db, 'artifacts', appId, 'users', userId, 'snapshots', id.toString()), targetPost);
+        
+        if (isFirebaseActive && userId) {
+          setDoc(doc(db, 'artifacts', appId, 'users', userId, 'snapshots', id.toString()), targetPost);
+        } else {
+          saveLocalStorageData();
+          renderInsights();
+          renderFeed();
+        }
         
         // Optimistic UI update for Shorts Mode if active
         const shortsLikeCount = document.querySelector(`.shorts-like-count-${id}`);
@@ -849,18 +941,26 @@
     function toggleSave(e, id) {
       if (e) e.stopPropagation();
       const post = posts.find(p => p.id === id);
-      if (post && userId) {
+      if (post) {
+        const currentUid = userId || 'local-user';
         if (!post.savedBy) post.savedBy = [];
         let isSaving = false;
-        if (post.savedBy.includes(userId)) {
-          post.savedBy = post.savedBy.filter(uid => uid !== userId);
+        
+        if (post.savedBy.includes(currentUid)) {
+          post.savedBy = post.savedBy.filter(uid => uid !== currentUid);
           triggerToast('나만의 컬렉션에서 제거되었습니다.');
         } else {
-          post.savedBy.push(userId);
+          post.savedBy.push(currentUid);
           isSaving = true;
           triggerToast('나만의 컬렉션에 보관되었습니다. 📁');
         }
-        setDoc(doc(db, 'artifacts', appId, 'users', userId, 'snapshots', id.toString()), post);
+
+        if (isFirebaseActive && userId) {
+          setDoc(doc(db, 'artifacts', appId, 'users', userId, 'snapshots', id.toString()), post);
+        } else {
+          saveLocalStorageData();
+          renderFeed();
+        }
 
         // Optimistic UI update for Shorts Mode if active
         const shortsSaveIcon = document.getElementById(`shorts-save-icon-${id}`);
@@ -873,13 +973,21 @@
 
     function deletePost(e, id) {
       if (e) e.stopPropagation();
-      if (!userId) return;
-      if (confirm('이 취향 조각을 클라우드에서 영구히 삭제하시겠습니까?')) {
-        deleteDoc(doc(db, 'artifacts', appId, 'users', userId, 'snapshots', id.toString()))
-          .then(() => {
-            toggleModal('detail-modal', false);
-            triggerToast('취향 카드가 클라우드에서 완전히 탈거되었습니다. ☁️');
-          });
+      if (confirm('이 취향 조각을 영구히 삭제하시겠습니까?')) {
+        if (isFirebaseActive && userId) {
+          deleteDoc(doc(db, 'artifacts', appId, 'users', userId, 'snapshots', id.toString()))
+            .then(() => {
+              toggleModal('detail-modal', false);
+              triggerToast('취향 카드가 클라우드에서 완전히 탈거되었습니다. ☁️');
+            });
+        } else {
+          posts = posts.filter(p => p.id !== id);
+          saveLocalStorageData();
+          toggleModal('detail-modal', false);
+          renderInsights();
+          renderFeed();
+          triggerToast('취향 카드가 로컬 보드에서 깔끔하게 탈거되었습니다. 💾');
+        }
       }
     }
 
@@ -937,7 +1045,8 @@
       const tagsHtml = (item.customTags || []).map(tag => `<button type="button" onclick="setQueryAndSearch('${tag}', true)" class="inline-block px-2.5 py-1 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-md text-[10px] sm:text-[11px] font-medium text-neutral-600 dark:text-neutral-300 mr-1.5 mb-1.5 transition-colors shadow-sm">#${tag}</button>`).join('');
       const locationHtml = item.location ? `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.location)}" target="_blank" class="inline-flex items-center gap-1.5 text-[11px] sm:text-xs text-brand hover:underline mb-3 transition-all" title="지도에서 보기"><i data-lucide="map-pin" class="w-3.5 h-3.5"></i><span>${item.location}</span><i data-lucide="external-link" class="w-3 h-3 opacity-50"></i></a>` : '';
       
-      const isSaved = item.savedBy && item.savedBy.includes(userId);
+      const currentUid = userId || 'local-user';
+      const isSaved = item.savedBy && item.savedBy.includes(currentUid);
       const saveIconClass = isSaved ? "fill-neutral-900 text-neutral-900 dark:fill-white dark:text-white" : "text-neutral-400 hover:text-neutral-800 dark:hover:text-white";
 
       detailContent.innerHTML = `
@@ -984,8 +1093,9 @@
       const emptyState = document.getElementById('empty-state');
       
       const filteredPosts = posts.filter(post => {
+        const currentUid = userId || 'local-user';
         if (activeCategoryFilter === 'SAVED') {
-           if (!post.savedBy || !post.savedBy.includes(userId)) return false;
+           if (!post.savedBy || !post.savedBy.includes(currentUid)) return false;
         } else {
            if (activeCategoryFilter !== 'all' && post.category !== activeCategoryFilter) return false;
         }
@@ -1006,11 +1116,12 @@
         const tagsPreview = (post.customTags || []).slice(0, 2).map(tag => `<button type="button" onclick="event.stopPropagation(); setQueryAndSearch('${tag}')" class="text-[10px] text-neutral-500 hover:text-brand z-20 relative font-medium transition-colors">#${tag}</button>`).join(' ');
         const extraTags = (post.customTags || []).length > 2 ? `<span class="text-[10px] text-neutral-400">...</span>` : '';
         
-        const isSaved = post.savedBy && post.savedBy.includes(userId);
+        const currentUid = userId || 'local-user';
+        const isSaved = post.savedBy && post.savedBy.includes(currentUid);
         const saveIconClass = isSaved ? "fill-neutral-900 text-neutral-900 dark:fill-white dark:text-white" : "text-neutral-400 group-hover:text-neutral-800 dark:group-hover:text-white";
 
         return `
-          <div onclick="openDetail(${post.id})" class="snapshot-card ${starClass} group relative flex flex-col justify-between overflow-hidden p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-warmgray-200 dark:border-neutral-800 hover:border-brand dark:hover:border-brand/50 bg-white dark:bg-neutral-800/40 shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer hover:-translate-y-1 h-full">
+          <div onclick="openDetail(${post.id})" class="snapshot-card ${starClass} group relative flex flex-col justify-between overflow-hidden p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-warmgray-200 dark:border-neutral-800 hover:border-brand dark:hover:border-brand/50 bg-white dark:bg-neutral-800/40 shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer hover:-translate-y-1 h-full">
             <div class="space-y-3 sm:space-y-4">
               
               ${buildCarouselHtml(post, false)}
@@ -1089,7 +1200,7 @@
            document.body.removeChild(tempDiv);
            triggerToast('스토리 이미지가 앨범에 성공적으로 저장되었습니다! 📸');
          } catch (err) {
-           console.error("Export error", err); document.body.removeChild(tempDiv);
+           console.error("Export to Story Image error", err); document.body.removeChild(tempDiv);
            triggerToast('이미지 저장에 실패했습니다. (외부 이미지 보안 권한 문제일 수 있습니다.)');
          }
       }, 1500);
